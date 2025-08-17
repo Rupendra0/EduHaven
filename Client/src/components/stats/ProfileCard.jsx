@@ -1,3 +1,4 @@
+"use client";
 import { useState, useEffect } from "react";
 import {
   User,
@@ -17,10 +18,13 @@ import { Link, useParams } from "react-router-dom";
 
 const backendUrl = import.meta.env.VITE_API_URL;
 
-const ProfileCard = ({ isCurrentUser = false }) => {
+const ProfileCard = ({ isCurrentUser = false, profileUser }) => {
   const [user, setUser] = useState(null);
+  const [isRequestSent, setIsRequestSent] = useState(false);
+  const [loading, setLoading] = useState(false); // to check if Friend Request is Processing
   const [isLoading, setIsLoading] = useState(true);
   const { userId } = useParams();
+  const friendId = user?._id; // Determine the profile ID
 
   useEffect(() => {
     const fetchUserProfile = async () => {
@@ -53,19 +57,100 @@ const ProfileCard = ({ isCurrentUser = false }) => {
     fetchUserProfile();
   }, [isCurrentUser, userId]);
 
+  // Check if friend request already sent
+  useEffect(() => {
+    const checkFriendRequest = async () => {
+      if (!user || isCurrentUser) return;
+      try {
+        const token = localStorage.getItem("token");
+        const res = await fetch(`${backendUrl}/friends/sent-requests`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (!res.ok) return;
+
+        const sentRequests = await res.json();
+        const alreadySent = sentRequests.some(
+          (reqUser) => reqUser._id === user._id
+        );
+        setIsRequestSent(alreadySent);
+      } catch (err) {
+        console.error(err);
+      }
+    };
+
+    checkFriendRequest();
+  }, [user, isCurrentUser]);
+
+  // Send Friend Request
+  const handleSendFriendRequest = async () => {
+    try {
+      setLoading(true);
+      const token = localStorage.getItem("token");
+      const res = await fetch(`${backendUrl}/friends/request/${friendId}`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+      });
+      if (res.ok) {
+        setIsRequestSent(true);
+        const data = await res.json();
+        console.log(data.message);
+      } else {
+        console.error("Failed to send request");
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Cancel Friend Request
+  const handleCancelFriendRequest = async () => {
+    try {
+      setLoading(true);
+      const token = localStorage.getItem("token");
+      const res = await fetch(
+        `${backendUrl}/friends/sent-requests/${friendId}`,
+        {
+          method: "DELETE",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+        }
+      );
+      if (res.ok) {
+        setIsRequestSent(false);
+        const data = await res.json();
+        console.log(data.message);
+      } else {
+        console.error("Failed to cancel request");
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   if (isLoading || !user) {
     return (
       <div className="overflow-hidden bg-gradient-to-br from-indigo-500/50 to-purple-500/5 rounded-3xl shadow-2xl pt-6 w-full h-fit relative">
         {/* Skeleton nav */}
         <div className="flex justify-end gap-6 px-4">
-          {isCurrentUser && <div className="w-6 h-6 rounded-full bg-gray-400/30"></div>}
+          {isCurrentUser && (
+            <div className="w-6 h-6 rounded-full bg-gray-400/30"></div>
+          )}
           <div className="w-6 h-6 rounded-full bg-gray-400/30"></div>
         </div>
 
         <div className="mx-4">
           {/* Skeleton profile */}
           <div className="relative flex items-center mb-4 gap-4 ">
-            <div className="shrink-0 w-28 h-28 rounded-full bg-gray-400/30"></div>{" "}
+            <div className="shrink-0 w-28 h-28 rounded-full bg-gray-400/30"></div>
             <div className="text-center flex-1">
               <div className="h-8 w-14 mx-auto rounded-md bg-gray-400/30 mb-1 "></div>
               <div className="h-4 w-18 mx-auto rounded-sm bg-gray-400/20"></div>
@@ -173,10 +258,28 @@ const ProfileCard = ({ isCurrentUser = false }) => {
             <span>Chat</span>
           </button>
           {!isCurrentUser && (
-            <button className="bg-purple-600 hover:bg-purple-700 transition-colors text-[var(--text-primary)] px-6 py-2 h-10 rounded-lg flex items-center space-x-2 w-full sm:w-auto text-center flex-1 text-nowrap">
-              <UserPlus className="w-5 h-5" />
-              <span>Add friend</span>
-            </button>
+            <>
+              {isRequestSent === false && (
+                <button
+                  onClick={handleSendFriendRequest}
+                  disabled={loading}
+                  className="bg-purple-600 hover:bg-purple-700 transition-colors text-white px-6 py-2 h-10 rounded-lg flex items-center space-x-2 flex-1 text-nowrap"
+                >
+                  <UserPlus className="w-5 h-5" />
+                  <span>{loading ? "Sending..." : "Add Friend"}</span>
+                </button>
+              )}
+
+              {isRequestSent === true && (
+                <button
+                  onClick={handleCancelFriendRequest}
+                  disabled={loading}
+                  className="bg-white/20 hover:bg-white/30 transition-colors text-[var(--text-primary)] px-6 py-2 h-10 rounded-lg flex items-center space-x-2 flex-1 text-nowrap"
+                >
+                  <span>{loading ? "Cancelling..." : "Cancel Request"}</span>
+                </button>
+              )}
+            </>
           )}
         </div>
       </div>

@@ -43,6 +43,7 @@ const Stats = ({ isCurrentUser = false }) => {
           const res = await fetchUserStats(userId);
 
           const mappedStats = {
+            _id: res.userInfo._id,
             name: `${res.userInfo.firstName} ${res.userInfo.lastName}`,
             bio: res.userInfo.bio,
             profilePicture: res.userInfo.profilePicture,
@@ -76,7 +77,8 @@ const Stats = ({ isCurrentUser = false }) => {
   }
 
   if (loading) return <div className="m-6">Loading profile...</div>;
-  if (!userStats) return <div className="m-6">User not found or error loading profile.</div>;
+  if (!userStats)
+    return <div className="m-6">User not found or error loading profile.</div>;
 
   return (
     <div className="m-6">
@@ -93,7 +95,7 @@ const Stats = ({ isCurrentUser = false }) => {
 
       <div className="flex flex-col lg:flex-row gap-6 w-full content-center">
         <div className="lg:w-[20%] min-w-72 space-y-6">
-          <ProfileCard isCurrentUser={isCurrentUser} user={userStats} />
+          <ProfileCard isCurrentUser={isCurrentUser} profileUser={userStats} />
           <div className="h-auto w-full rounded-3xl bg-sec p-5 space-y-4">
             <AdCard />
           </div>
